@@ -30,7 +30,12 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(pump_controller)
 target_sources(pump_controller PUBLIC
-./src/main.c)
+./src/demand.c
+./src/gpio.c
+./src/main.c
+./src/startup.c
+./src/status_led.c
+)
 
 # initialize the Raspberry Pi Pico SDK
 pico_sdk_init()
