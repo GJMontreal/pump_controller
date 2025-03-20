@@ -1,36 +1,28 @@
 #include "status_led.h"
 
 #include "gpio.h"
+#include "timers.h"
 
 #include "hardware/gpio.h"
 
-#define LED_TIMER_PERIOD  pdMS_TO_TICKS( 500UL ) 
-#define STATUS_LED  ( PICO_DEFAULT_LED_PIN )
+#include <stdio.h>
 
-void timerCallback( TimerHandle_t timer )
-{
-    ( void )timer;
-    gpio_xor_mask( 1u << STATUS_LED );
+#define LED_TIMER_PERIOD pdMS_TO_TICKS(500UL)
+#define STATUS_LED (PICO_DEFAULT_LED_PIN)
+
+static TimerHandle_t led_timer = NULL;
+
+void timerCallback(TimerHandle_t timer) {
+  (void)timer;
+  gpio_xor_mask(1u << STATUS_LED);
 }
 
-TimerHandle_t setupStatusLED()
-{
-  TimerHandle_t timer =
-  timer = xTimerCreate(     /* A text name, purely to help
-    debugging. */
-(const char *) "LEDTimer",
-/* The timer period, in this case
-1000ms (1s). */
-LED_TIMER_PERIOD,
-/* This is a periodic timer, so
-xAutoReload is set to pdTRUE. */
-pdTRUE,
-/* The ID is not used, so can be set
-to anything. */
-(void *) 0,
-/* The callback function that switches
-the LED off. */
-timerCallback
-);
-  return timer;
+void initStatusLED() {
+  led_timer = xTimerCreate((const char *)"LEDTimer", LED_TIMER_PERIOD, pdTRUE,
+                           (void *)0, timerCallback);
+
+  if (led_timer != NULL) {
+    printf("starting heartbeat timer \n");
+    xTimerStart(led_timer, 0);
+  }
 }
