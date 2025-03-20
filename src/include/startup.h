@@ -3,6 +3,8 @@
 
 #include "FreeRTOS.h"
 
+#define STARTUP_TASK_PRIORITY ( tskIDLE_PRIORITY + 1 )
+
 void startupTask(void *params);
 
 #endif

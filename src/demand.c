@@ -2,8 +2,40 @@
 
 #include "gpio.h"
 
+#include "startup.h"
+
 #include <stdio.h>
 
+QueueHandle_t demand_queue = NULL;
+
+Demand_Queue_Params_t queue_params; 
+Demand_t demand[NUM_DEMAND_INPUTS];
+
+void initDemands(Demand_t *demand){
+  char timer_name[12];
+  for(uint i=0; i < NUM_DEMAND_INPUTS; i++){
+    sprintf(timer_name, "timer %d", i);
+    demand[i].shutoff_timer = xTimerCreate(timer_name, PURGE_TIME, pdFALSE, (void*)&demand[i], &shutdownCallback);
+    // debounce_timer[i]= NULL;
+    demand[i].input_gpio = DEMAND_1_GPIO + i;
+    demand[i].desired_state = gpio_get(DEMAND_1_GPIO + i);
+    demand[i].output_gpio = PUMP_1_GPIO + i;
+  }
+
+  demand_queue =
+  xQueueCreate(NUM_DEMAND_INPUTS,
+               sizeof(Demand_t));
+  if (demand_queue != NULL) {
+
+    queue_params.demand = &demand[0];
+    queue_params.queue = &demand_queue;
+    xTaskCreate(demandQueueRXTask, "DemandRx", configMINIMAL_STACK_SIZE, &queue_params,
+            DEMAND_QUEUE_RX_TASK_PRIORITY, NULL);
+
+    xTaskCreate(startupTask, "Startup", configMINIMAL_STACK_SIZE, &queue_params,
+            STARTUP_TASK_PRIORITY, NULL);
+  }
+}
 
 void demandQueueRXTask(void *params){
   Demand_t pump_demand;

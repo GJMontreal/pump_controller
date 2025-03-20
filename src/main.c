@@ -15,51 +15,25 @@
 
 #include "demand.h"
 #include "gpio.h"
-#include "startup.h"
 #include "status_led.h"
 
 static char event_str[128];
 
 #define DEBOUNCE_TIMER_PERIOD pdMS_TO_TICKS( 1000UL)
-#define PURGE_TIME pdMS_TO_TICKS( 5000UL )
 
 static void setupHardware(void);
-static void setupDemands(Demand_t* demand);
+
 
 // FreeRTOS callbacks
 static void debounceCallback(TimerHandle_t timer);
-
 static void gpioIRQCallback(uint gpio, uint32_t events);
 
 static TimerHandle_t debounce_timer[NUM_DEMAND_INPUTS];
 
-QueueHandle_t demand_queue = NULL;
-Demand_t demand[NUM_DEMAND_INPUTS];
-
-#define DEMAND_QUEUE_RX_TASK_PRIORITY	( tskIDLE_PRIORITY + 2 )
-#define STARTUP_TASK_PRIORITY ( tskIDLE_PRIORITY + 1 )
-
 int main(){
-  Demand_Queue_Params_t queue_params; 
-
   setupHardware();
   printf("initializing pump_controller.\n");
-  
-  setupDemands(&demand[0]);
-
-  demand_queue =
-      xQueueCreate(NUM_DEMAND_INPUTS,
-                   sizeof(Demand_t));
-  if (demand_queue != NULL) {
-    
-    queue_params.demand = &demand[0];
-    queue_params.queue = &demand_queue;
-    xTaskCreate(demandQueueRXTask, "DemandRx", configMINIMAL_STACK_SIZE, &queue_params,
-                DEMAND_QUEUE_RX_TASK_PRIORITY, NULL);
-
-    xTaskCreate(startupTask, "Startup", configMINIMAL_STACK_SIZE, &queue_params,
-                STARTUP_TASK_PRIORITY, NULL);
-  }
+  initDemands(&demand[0]);
 
   TimerHandle_t LEDTimer = setupStatusLED();
   if(LEDTimer != NULL){
@@ -94,18 +68,6 @@ static void setupHardware( void )
     gpio_put(BOILER_GPIO, (false == OUTPUT_ACTIVE_HIGH));
     gpio_init(BOILER_GPIO);
     gpio_set_dir(BOILER_GPIO, true);
-}
-
-static void setupDemands(Demand_t *demand){
-  char timer_name[12];
-  for(uint i=0; i < NUM_DEMAND_INPUTS; i++){
-    sprintf(timer_name, "timer %d", i);
-    demand[i].shutoff_timer = xTimerCreate(timer_name, PURGE_TIME, pdFALSE, (void*)&demand[i], &shutdownCallback);
-    debounce_timer[i]= NULL;
-    demand[i].input_gpio = DEMAND_1_GPIO + i;
-    demand[i].desired_state = gpio_get(DEMAND_1_GPIO + i);
-    demand[i].output_gpio = PUMP_1_GPIO + i;
-  }
 }
 
 static void gpioIRQCallback(uint gpio, uint32_t events){
