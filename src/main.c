@@ -1,9 +1,12 @@
-// A very simple two zone pump and boiler sequencer
-// An input on either zone will start the corresponding pump and generate a
-// boiler demand signal Either pump will continue to run for a preset purge time
-// after the zone demand disappears
+/* 
+A very simple zone pump and boiler sequencer.
+ 
+A demand will start the corresponding pump and generate a boiler demand signal.
 
-#include "FreeRTOS.h"
+Pumps will continue to run for a preset purge time after the zone demand disappears.
+
+Outputs and inputs are configurable to be either active high or low.
+*/
 
 #include <stdio.h>
 
