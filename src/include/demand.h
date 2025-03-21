@@ -2,13 +2,13 @@
 #define __demand_h_
 
 #include "FreeRTOS.h"
-#include "FreeRTOSConfig.h"
 
-#include "pico/stdlib.h"
 #include "queue.h"
 #include "timers.h"
 
-#define PURGE_TIME pdMS_TO_TICKS(5000UL)
+#define PURGE_TIME pdMS_TO_TICKS(5 * 1000UL)
+#define DEBOUNCE_TIMER_PERIOD pdMS_TO_TICKS(1000UL)
+
 #define NUM_DEMAND_INPUTS 2
 
 #define DEMAND_QUEUE_RX_TASK_PRIORITY (tskIDLE_PRIORITY + 2)
@@ -22,15 +22,16 @@ typedef struct {
 } Demand_t;
 
 typedef struct {
-  Demand_t *demand;
+  Demand_t *demand; // first demand in array
   QueueHandle_t *queue;
 } Demand_Queue_Params_t;
 
 extern QueueHandle_t demand_queue;
-extern Demand_t demand[];
 
-void initDemands(Demand_t *demand);
+void initDemands();
 void demandQueueRXTask(void *params);
 void shutdownCallback(TimerHandle_t timer);
+
+Demand_t *demandForInput(uint gpio);
 
 #endif

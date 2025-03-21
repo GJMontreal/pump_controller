@@ -9,24 +9,48 @@
 QueueHandle_t demand_queue = NULL;
 
 Demand_Queue_Params_t queue_params;
-Demand_t demand[NUM_DEMAND_INPUTS];
+Demand_t demands[NUM_DEMAND_INPUTS];
 
-void initDemands(Demand_t *demand) {
+static void debounceCallback(TimerHandle_t timer) {
+  Demand_t* demand = (Demand_t*)pvTimerGetTimerID(timer);
+  
+  uint gpio_state = (gpio_get(demand->input_gpio) == INPUT_ACTIVE_HIGH);
+  
+  if (gpio_state == demand->desired_state) {
+    xQueueSendToBackFromISR(demand_queue, demand, 0);
+  }
+}
+
+Demand_t* demandForInput(uint gpio){
+  Demand_t* demand = NULL;
+  for(uint i = 0; i < NUM_DEMAND_INPUTS; i++)
+  {
+    if(demands[i].input_gpio == gpio){
+      demand = &demands[i];
+      break;
+    }
+  }
+  return demand;
+}
+
+
+void initDemands() {
   char timer_name[12];
   for (uint i = 0; i < NUM_DEMAND_INPUTS; i++) {
     sprintf(timer_name, "timer %d", i);
-    demand[i].shutoff_timer = xTimerCreate(
-        timer_name, PURGE_TIME, pdFALSE, (void *)&demand[i], &shutdownCallback);
-    // debounce_timer[i]= NULL;
-    demand[i].input_gpio = DEMAND_1_GPIO + i;
-    demand[i].desired_state = gpio_get(DEMAND_1_GPIO + i);
-    demand[i].output_gpio = PUMP_1_GPIO + i;
+    demands[i].shutoff_timer = xTimerCreate(
+        timer_name, PURGE_TIME, pdFALSE, (void *)&demands[i], &shutdownCallback);
+    demands[i].debounce_timer = xTimerCreate(timer_name, DEBOUNCE_TIMER_PERIOD, pdFALSE,
+      NULL, &debounceCallback);
+    demands[i].input_gpio = DEMAND_1_GPIO + i;
+    demands[i].desired_state = (gpio_get(DEMAND_1_GPIO + i) == INPUT_ACTIVE_HIGH);
+    demands[i].output_gpio = PUMP_1_GPIO + i;
   }
 
   demand_queue = xQueueCreate(NUM_DEMAND_INPUTS, sizeof(Demand_t));
   if (demand_queue != NULL) {
 
-    queue_params.demand = &demand[0];
+    queue_params.demand = demands;
     queue_params.queue = &demand_queue;
     xTaskCreate(demandQueueRXTask, "DemandRx", configMINIMAL_STACK_SIZE,
                 &queue_params, DEMAND_QUEUE_RX_TASK_PRIORITY, NULL);
